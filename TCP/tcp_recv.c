@@ -1,6 +1,6 @@
-// NAME: tcprecv_stream_file.c
-// DESCRIPTION: TCP receiver for streamed file or binary data.
-// Usage: ./tcprecv_stream_file <listen_port> <output_filename>
+// NAME: recv.c
+// DESCRIPTION: receives a file over TCP (stream)
+// COMPILE: gcc -Wall -Wextra -O2 tcp_recv.c -o tcp_recv
 
 #include <arpa/inet.h>
 #include <stdio.h>

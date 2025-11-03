@@ -1,5 +1,7 @@
-// NAME: tcpsend_stream_file.c
-// DESCRIPTION: Sends a file over TCP (stream) instead of UDP (datagram)
+// NAME: tcp_send.c
+// DESCRIPTION: Sends a file over TCP (stream)
+// COMPILE: gcc -Wall -Wextra -O2 tcp_send.c -o tcp_send
+
 
 #include <arpa/inet.h>
 #include <stdio.h>
