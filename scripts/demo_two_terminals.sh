@@ -19,18 +19,18 @@ gcc -O2 -Wall -std=c11 -o "$BIN_DIR/recv_parse" "$ROOT/src/recv_parse.c"
 echo "Preparing payload ($REPEAT messages)..."
 MSG_HEX="61 00 00 13 F8 F6 49 74 92 00 00 00 00 B2 D0 5E 08 53 00 02 13 45 00 05 00 08"
 
-python3 - <<PY > "$PAYLOAD"
+python3 - <<PY > /dev/null
 import sys
 msg = bytes.fromhex('$MSG_HEX')
 rep = $REPEAT
 with open('$PAYLOAD', 'wb') as f:
     for _ in range(rep):
         f.write(msg)
-print('wrote', len(msg)*rep, 'bytes to', '$PAYLOAD')
+sys.stderr.write('wrote %d bytes to %s\n' % (len(msg)*rep, '$PAYLOAD'))
 PY
 
-CMD_RECV="cd '$ROOT' && ./bin/recv_parse $PORT"
-CMD_SEND="cd '$ROOT' && ./bin/udpsend_stream_file 127.0.0.1 $PORT '$PAYLOAD'"
+CMD_RECV="cd '$ROOT' && ./bin/recv_parse_fast $PORT"
+CMD_SEND="cd '$ROOT' && ./bin/udpsend_stream_file 127.0.0.1 $PORT '$PAYLOAD' 26 0"
 
 if command -v tmux >/dev/null 2>&1; then
     session="udp-demo-$$"

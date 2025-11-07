@@ -12,8 +12,8 @@ BIN_DIR="$ROOT/bin"
 PAYLOAD="$ROOT/payload_seq.bin"
 PARSED_LOG="$ROOT/parsed_seq.log"
 
-echo "Building recv_parse..."
-gcc -O2 -Wall -std=c11 -o "$BIN_DIR/recv_parse" "$ROOT/src/recv_parse.c"
+echo "Building fast receiver..."
+gcc -O2 -Wall -std=c11 -o "$BIN_DIR/recv_parse_fast" "$ROOT/src/recv_parse_fast.c"
 
 echo "Preparing sequential payload ($REPEAT messages) -> $PAYLOAD"
 
@@ -29,26 +29,37 @@ with open('$PAYLOAD', 'wb') as f:
         m[1] = (i >> 8) & 0xFF
         m[2] = i & 0xFF
         f.write(m)
-print('wrote', len(m)*rep, 'bytes to', '$PAYLOAD')
+import sys
+sys.stderr.write('wrote %d bytes to %s\n' % (len(m)*rep, '$PAYLOAD'))
 PY
 
-echo "Starting recv_parse (port $PORT), logging to $PARSED_LOG"
+echo "Starting fast receiver (port $PORT), logging to $PARSED_LOG"
 rm -f "$PARSED_LOG"
-"$BIN_DIR/recv_parse" "$PORT" > "$PARSED_LOG" 2>&1 &
+"$BIN_DIR/recv_parse_fast" "$PORT" > "$PARSED_LOG" 2>&1 &
 PID=$!
 
 sleep 0.5
 
 echo "Streaming payload to 127.0.0.1:$PORT"
-"$ROOT/bin/udpsend_stream_file" 127.0.0.1 "$PORT" "$PAYLOAD"
+"$ROOT/bin/udpsend_stream_file" 127.0.0.1 "$PORT" "$PAYLOAD" 26 0
 
-echo "Waiting briefly for receiver to finish..."
-sleep 1
+echo "Waiting for receiver to finish parsing..."
+# Allow enough time for receiver to process all datagrams
+sleep 3
 
-kill "$PID" 2>/dev/null || true
+# ask receiver to terminate gracefully so it flushes batched output
+kill -INT "$PID" 2>/dev/null || true
 
-echo "Parsing parsed log for tracking numbers"
-grep -o 'tracking=[0-9]\+' "$PARSED_LOG" | sed 's/tracking=//' > "$ROOT/received_seq.txt" || true
+echo "Parsing parsed output for tracking numbers"
+if [ -f "$ROOT/received_fast.txt" ]; then
+    # fast receiver wrote tracking numbers directly
+    cp "$ROOT/received_fast.txt" "$ROOT/received_seq.txt"
+elif [ -f "$PARSED_LOG" ]; then
+    grep -o 'tracking=[0-9]\+' "$PARSED_LOG" | sed 's/tracking=//' > "$ROOT/received_seq.txt" || true
+else
+    echo "No parsed output found"
+    touch "$ROOT/received_seq.txt"
+fi
 
 
 echo "Comparing expected sequence to received"

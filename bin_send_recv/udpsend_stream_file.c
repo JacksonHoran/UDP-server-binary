@@ -10,14 +10,24 @@
 #define CHUNK_SIZE 1024 // bytes per packet
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        printf("Usage: %s <peer_ip> <peer_port> <filename>\n", argv[0]);
+    if (argc < 4 || argc > 6) {
+        printf("Usage: %s <peer_ip> <peer_port> <filename> [chunk_size] [delay_us]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     const char *peer_ip = argv[1];
     int peer_port = atoi(argv[2]);
     const char *filename = argv[3];
+    int chunk_size = CHUNK_SIZE;
+    int delay_us = 10000; // default 10ms throttle
+    if (argc >= 5) {
+        int cs = atoi(argv[4]);
+        if (cs > 0) chunk_size = cs;
+    }
+    if (argc == 6) {
+        int d = atoi(argv[5]);
+        if (d >= 0) delay_us = d;
+    }
 
     struct sockaddr_in peer_addr = {.sin_family = AF_INET, .sin_port = htons(peer_port)};
     if (inet_pton(AF_INET, peer_ip, &(peer_addr.sin_addr)) <= 0) {
@@ -40,12 +50,16 @@ int main(int argc, char *argv[]) {
 
     printf("Streaming file \"%s\" to %s:%d...\n", filename, peer_ip, peer_port);
 
-    char buffer[CHUNK_SIZE];
+    char *buffer = malloc(chunk_size);
+    if (!buffer) {
+        perror("malloc");
+        close(udp_socket);
+        return EXIT_FAILURE;
+    }
     size_t bytes_read;
     size_t total_sent = 0;
     int packet_count = 0;
-
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+    while ((bytes_read = fread(buffer, 1, chunk_size, file)) > 0) {
         ssize_t sent = sendto(udp_socket, buffer, bytes_read, 0,
                               (struct sockaddr *)&peer_addr, sizeof(peer_addr));
         if (sent < 0) {
@@ -58,8 +72,7 @@ int main(int argc, char *argv[]) {
 
         printf("Sent packet #%d (%zd bytes)\n", packet_count, sent);
 
-        // Optional: throttle a little to avoid overwhelming receiver
-        usleep(10000); // 10ms delay
+        if (delay_us > 0) usleep(delay_us);
     }
 
     printf("Finished sending %zu bytes in %d packets.\n", total_sent, packet_count);

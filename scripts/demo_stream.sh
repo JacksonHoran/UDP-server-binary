@@ -23,24 +23,24 @@ echo "Preparing payload ($REPEAT messages)..."
 MSG_HEX="61 00 00 13 F8 F6 49 74 92 00 00 00 00 B2 D0 5E 08 53 00 02 13 45 00 05 00 08"
 
 # create one message binary
-python3 - <<PY > "$PAYLOAD"
+python3 - <<PY > /dev/null
 import sys
 msg = bytes.fromhex('$MSG_HEX')
 rep = $REPEAT
 with open('$PAYLOAD', 'wb') as f:
     for _ in range(rep):
         f.write(msg)
-print('wrote', len(msg)*rep, 'bytes to', '$PAYLOAD')
+sys.stderr.write('wrote %d bytes to %s\n' % (len(msg)*rep, '$PAYLOAD'))
 PY
 
-echo "Starting parser (recv_parse) on port $PORT"
-"$BIN_DIR/recv_parse" "$PORT" &
+echo "Starting fast parser (recv_parse_fast) on port $PORT"
+"$BIN_DIR/recv_parse_fast" "$PORT" &
 PID=$!
 
 sleep 0.5
 
 echo "Streaming payload to 127.0.0.1:$PORT using udpsend_stream_file"
-"$ROOT/bin/udpsend_stream_file" 127.0.0.1 "$PORT" "$PAYLOAD"
+"$ROOT/bin/udpsend_stream_file" 127.0.0.1 "$PORT" "$PAYLOAD" 26 0
 
 echo "waiting 1s for receiver output..."
 sleep 1
